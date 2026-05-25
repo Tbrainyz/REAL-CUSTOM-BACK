@@ -6,15 +6,28 @@ const {
 } = require('../controllers/financeController');
 const { protect } = require('../middleware/auth');
 
+// Protect all routes in this router
 router.use(protect);
 
-// Invoice routes
-router.route('/invoices').get(getInvoices).post(createInvoice);
-router.route('/invoices/:id').get(getInvoice).put(updateInvoice).delete(deleteInvoice);
+// ==================== INVOICE ROUTES ====================
+router.route('/invoices')
+  .get(getInvoices)
+  .post(createInvoice);
+
+router.route('/invoices/:id')
+  .get(getInvoice)
+  .put(updateInvoice)
+  .delete(deleteInvoice);
+
 router.put('/invoices/:id/paid', markInvoicePaid);
 
-// Expense routes
-router.route('/expenses').get(getExpenses).post(createExpense);
-router.route('/expenses/:id').put(updateExpense).delete(deleteExpense);
+// ==================== EXPENSE ROUTES ====================
+router.route('/expenses')
+  .get(getExpenses)
+  .post(createExpense);
+
+router.route('/expenses/:id')
+  .put(updateExpense)
+  .delete(deleteExpense);
 
 module.exports = router;

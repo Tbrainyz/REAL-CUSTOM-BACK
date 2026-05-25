@@ -36,7 +36,7 @@ app.use(
   })
 );
 
-// Paystack webhook needs raw body - must be before json parser
+// Paystack webhook needs raw body - must come before json parser
 app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -56,17 +56,15 @@ app.get('/health', (req, res) => {
 
 // ==================== ROUTES ====================
 
-// Changed '/api/auth' to '/auth' to match your current frontend request
-// Routes
 app.use('/auth', require('./routes/auth'));
-app.use('/contacts', require('./routes/contacts'));      // ← Changed
-app.use('/messages', require('./routes/messages'));      // ← Also changed for consistency
-app.use('/templates', require('./routes/templates'));    // ← Also changed
-app.use('/api', require('./routes/finance'));
-app.use('/inventory', require('./routes/inventory'));    // ← Also changed
-app.use('/dashboard', require('./routes/dashboard'));    // ← Also changed
-app.use('/payments', require('./routes/payments'));      // ← Also changed
-app.use('/users', require('./routes/users'));            // ← Also changed
+app.use('/contacts', require('./routes/contacts'));
+app.use('/messages', require('./routes/messages'));
+app.use('/templates', require('./routes/templates'));
+app.use('/invoices', require('./routes/finance'));     // ← Finance router handles both invoices & expenses
+app.use('/inventory', require('./routes/inventory'));
+app.use('/dashboard', require('./routes/dashboard'));
+app.use('/payments', require('./routes/payments'));
+app.use('/users', require('./routes/users'));
 
 // 404 Handler
 app.use((req, res) => {
