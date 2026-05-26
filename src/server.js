@@ -63,8 +63,9 @@ app.use('/contacts', require('./routes/contacts'));
 app.use('/messages', require('./routes/messages'));
 app.use('/templates', require('./routes/templates'));
 
-// Finance Router mounted at root level
-app.use('/', require('./routes/finance'));   // ← This is the simplest fix
+// Finance Routes - Split
+app.use('/invoices', require('./routes/invoices'));
+app.use('/expenses', require('./routes/expenses'));
 
 app.use('/inventory', require('./routes/inventory'));
 app.use('/dashboard', require('./routes/dashboard'));
