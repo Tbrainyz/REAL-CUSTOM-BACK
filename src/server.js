@@ -36,7 +36,7 @@ app.use(
   })
 );
 
-// Paystack webhook needs raw body - must come before json parser
+// Paystack webhook - must be before json parser
 app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -60,7 +60,10 @@ app.use('/auth', require('./routes/auth'));
 app.use('/contacts', require('./routes/contacts'));
 app.use('/messages', require('./routes/messages'));
 app.use('/templates', require('./routes/templates'));
-app.use('/invoices', require('./routes/finance'));     // ← Finance router handles both invoices & expenses
+
+// Finance Router (Invoices + Expenses)
+app.use('/invoices', require('./routes/finance'));   // ← Correct mounting
+
 app.use('/inventory', require('./routes/inventory'));
 app.use('/dashboard', require('./routes/dashboard'));
 app.use('/payments', require('./routes/payments'));
@@ -82,9 +85,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     console.log('⏳ Connecting to MongoDB...');
-    
     await connectDB();
-    
     console.log('✅ MongoDB Connected Successfully');
 
     const server = app.listen(PORT, async () => {
