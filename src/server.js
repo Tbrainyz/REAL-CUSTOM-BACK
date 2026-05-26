@@ -36,7 +36,7 @@ app.use(
   })
 );
 
-// Paystack webhook - must come before json parser
+// Paystack webhook
 app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -56,13 +56,15 @@ app.get('/health', (req, res) => {
 
 // ==================== ROUTES ====================
 
+// ==================== ROUTES ====================
+
 app.use('/auth', require('./routes/auth'));
 app.use('/contacts', require('./routes/contacts'));
 app.use('/messages', require('./routes/messages'));
 app.use('/templates', require('./routes/templates'));
 
-// Finance routes (Invoices + Expenses)
-app.use('/invoices', require('./routes/finance'));   // ← This is correct
+// Finance Router mounted at root level
+app.use('/', require('./routes/finance'));   // ← This is the simplest fix
 
 app.use('/inventory', require('./routes/inventory'));
 app.use('/dashboard', require('./routes/dashboard'));
