@@ -6,7 +6,7 @@ const {
 } = require('../controllers/financeController');
 const { protect } = require('../middleware/auth');
 
-// Protect all routes in this router
+// Protect all routes
 router.use(protect);
 
 // ==================== INVOICE ROUTES ====================
