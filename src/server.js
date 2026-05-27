@@ -16,11 +16,12 @@ if (!fs.existsSync(path.join(__dirname, '../uploads'))) {
 
 const app = express();
 
-// CORS Setup
+// CORS - Updated with your Vercel frontend
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'https://real-custom-back.vercel.app/',
+  'https://real-custom-back.vercel.app',
+  
 ];
 
 app.use(
@@ -46,41 +47,30 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString(), version: '1.0.0' });
+  res.json({ status: 'OK', env: process.env.NODE_ENV || 'development' });
 });
 
-// ==================== ROUTES ====================
-
-// ==================== ROUTES ====================
-
+// Routes
 app.use('/auth', require('./routes/auth'));
 app.use('/contacts', require('./routes/contacts'));
 app.use('/messages', require('./routes/messages'));
 app.use('/templates', require('./routes/templates'));
-
-// Finance Routes - Split
 app.use('/invoices', require('./routes/invoices'));
 app.use('/expenses', require('./routes/expenses'));
-
 app.use('/inventory', require('./routes/inventory'));
 app.use('/dashboard', require('./routes/dashboard'));
 app.use('/payments', require('./routes/payments'));
 app.use('/users', require('./routes/users'));
 
-// 404 Handler
+// 404
 app.use((req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    message: `Route ${req.originalUrl} not found` 
-  });
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
 });
 
-// Error Handler
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
@@ -91,21 +81,16 @@ const startServer = async () => {
     await connectDB();
     console.log('✅ MongoDB Connected Successfully');
 
-    const server = app.listen(PORT, async () => {
-      console.log(`\n🚀 MessagePro Server running on port ${PORT}`);
-      console.log(`   Env  : ${process.env.NODE_ENV || 'development'}`);
-      console.log(`   API  : http://localhost:${PORT}/api`);
-      console.log(`   Health: http://localhost:${PORT}/health\n`);
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
 
-      try {
-        await initScheduledJobs();
-      } catch (jobError) {
-        console.warn('⚠️ Scheduled jobs failed to init:', jobError.message);
-      }
+    initScheduledJobs().catch(err => {
+      console.warn('⚠️ Scheduled jobs failed:', err.message);
     });
 
   } catch (error) {
-    console.error('❌ Server startup error:', error.message);
+    console.error('❌ Server startup failed:', error.message);
     process.exit(1);
   }
 };
