@@ -16,12 +16,12 @@ if (!fs.existsSync(path.join(__dirname, '../uploads'))) {
 
 const app = express();
 
-// ==================== CORS CONFIGURATION ====================
+// ==================== CORS ====================
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'https://real-customer.vercel.app',        // Frontend
-  'https://real-custom-back.onrender.com',   // Backend itself
+  'https://real-customer.vercel.app',
+  'https://real-custom-back.onrender.com',
 ];
 
 app.use(
@@ -30,17 +30,16 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.log(`❌ CORS Blocked Origin: ${origin}`);
+        console.log(`❌ CORS Blocked: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 
-// Handle preflight requests
 app.options('*', cors());
 
 // Paystack webhook
@@ -55,32 +54,28 @@ if (process.env.NODE_ENV !== 'production') {
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Health check
+// Health Check
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    env: process.env.NODE_ENV,
-    allowed_origins: allowedOrigins 
-  });
+  res.json({ status: 'OK', message: 'Server is running' });
 });
 
-// Routes - IMPORTANT: Add /api prefix if your frontend expects it
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/contacts', require('./routes/contacts'));
-app.use('/api/messages', require('./routes/messages'));
-app.use('/api/templates', require('./routes/templates'));
-app.use('/api/invoices', require('./routes/invoices'));
-app.use('/api/expenses', require('./routes/expenses'));
-app.use('/api/inventory', require('./routes/inventory'));
-app.use('/api/dashboard', require('./routes/dashboard'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/users', require('./routes/users'));
+// ==================== ROUTES (Without extra /api prefix) ====================
+app.use('/auth', require('./routes/auth'));
+app.use('/contacts', require('./routes/contacts'));
+app.use('/messages', require('./routes/messages'));
+app.use('/templates', require('./routes/templates'));
+app.use('/invoices', require('./routes/invoices'));
+app.use('/expenses', require('./routes/expenses'));
+app.use('/inventory', require('./routes/inventory'));
+app.use('/dashboard', require('./routes/dashboard'));
+app.use('/payments', require('./routes/payments'));
+app.use('/users', require('./routes/users'));
 
 // 404 Handler
 app.use((req, res) => {
   res.status(404).json({ 
     success: false, 
-    message: `Route ${req.originalUrl} not found` 
+    message: `Route ${req.method} ${req.originalUrl} not found` 
   });
 });
 
@@ -95,12 +90,12 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Frontend Allowed: https://real-customer.vercel.app`);
+      console.log(`🌐 Allowed Frontend: https://real-customer.vercel.app`);
     });
 
-    initScheduledJobs().catch(err => console.warn('Scheduled jobs warning:', err.message));
+    initScheduledJobs().catch(err => console.warn('⚠️ Scheduled jobs:', err.message));
   } catch (error) {
-    console.error('Server startup failed:', error);
+    console.error('❌ Startup Error:', error);
     process.exit(1);
   }
 };
