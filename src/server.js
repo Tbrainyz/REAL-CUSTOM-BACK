@@ -20,8 +20,8 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'https://real-customer.vercel.app/',      // Your Frontend
-
+  'https://real-customer.vercel.app',        // Frontend
+  'https://real-custom-back.onrender.com',   // Backend itself
 ];
 
 app.use(
@@ -40,10 +40,10 @@ app.use(
   })
 );
 
-// Handle preflight OPTIONS requests
+// Handle preflight requests
 app.options('*', cors());
 
-// Paystack webhook (must be before JSON parser)
+// Paystack webhook
 app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -53,29 +53,28 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Health check route
+// Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    environment: process.env.NODE_ENV || 'development',
-    frontend_allowed: process.env.CLIENT_URL || 'Not configured'
+    env: process.env.NODE_ENV,
+    allowed_origins: allowedOrigins 
   });
 });
 
-// API Routes
-app.use('/auth', require('./routes/auth'));
-app.use('/contacts', require('./routes/contacts'));
-app.use('/messages', require('./routes/messages'));
-app.use('/templates', require('./routes/templates'));
-app.use('/invoices', require('./routes/invoices'));
-app.use('/expenses', require('./routes/expenses'));
-app.use('/inventory', require('./routes/inventory'));
-app.use('/dashboard', require('./routes/dashboard'));
-app.use('/payments', require('./routes/payments'));
-app.use('/users', require('./routes/users'));
+// Routes - IMPORTANT: Add /api prefix if your frontend expects it
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/contacts', require('./routes/contacts'));
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/templates', require('./routes/templates'));
+app.use('/api/invoices', require('./routes/invoices'));
+app.use('/api/expenses', require('./routes/expenses'));
+app.use('/api/inventory', require('./routes/inventory'));
+app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/payments', require('./routes/payments'));
+app.use('/api/users', require('./routes/users'));
 
 // 404 Handler
 app.use((req, res) => {
@@ -85,29 +84,23 @@ app.use((req, res) => {
   });
 });
 
-// Error Handler
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
-    console.log('⏳ Connecting to MongoDB...');
     await connectDB();
-    console.log('✅ MongoDB Connected Successfully');
+    console.log('✅ MongoDB Connected');
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
-      console.log(`🌐 Allowed Frontend: https://real-customer.vercel.app`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌐 Frontend Allowed: https://real-customer.vercel.app`);
     });
 
-    // Initialize scheduled jobs
-    initScheduledJobs().catch(err => {
-      console.warn('⚠️ Scheduled jobs initialization failed:', err.message);
-    });
-
+    initScheduledJobs().catch(err => console.warn('Scheduled jobs warning:', err.message));
   } catch (error) {
-    console.error('❌ Server startup failed:', error.message);
+    console.error('Server startup failed:', error);
     process.exit(1);
   }
 };
