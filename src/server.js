@@ -16,12 +16,12 @@ if (!fs.existsSync(path.join(__dirname, '../uploads'))) {
 
 const app = express();
 
-// CORS - Updated with your Vercel frontend
+// ==================== CORS CONFIGURATION ====================
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  'https://real-customer.vercel.app/',
-  
+  'https://real-customer.vercel.app',      // Your Frontend
+
 ];
 
 app.use(
@@ -30,14 +30,20 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.log(`❌ CORS Blocked Origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   })
 );
 
-// Paystack webhook
+// Handle preflight OPTIONS requests
+app.options('*', cors());
+
+// Paystack webhook (must be before JSON parser)
 app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -47,14 +53,19 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
+// Static files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Health check
+// Health check route
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', env: process.env.NODE_ENV || 'development' });
+  res.json({ 
+    status: 'OK', 
+    environment: process.env.NODE_ENV || 'development',
+    frontend_allowed: process.env.CLIENT_URL || 'Not configured'
+  });
 });
 
-// Routes
+// API Routes
 app.use('/auth', require('./routes/auth'));
 app.use('/contacts', require('./routes/contacts'));
 app.use('/messages', require('./routes/messages'));
@@ -66,11 +77,15 @@ app.use('/dashboard', require('./routes/dashboard'));
 app.use('/payments', require('./routes/payments'));
 app.use('/users', require('./routes/users'));
 
-// 404
+// 404 Handler
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+  res.status(404).json({ 
+    success: false, 
+    message: `Route ${req.originalUrl} not found` 
+  });
 });
 
+// Error Handler
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
@@ -82,11 +97,13 @@ const startServer = async () => {
     console.log('✅ MongoDB Connected Successfully');
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`🌐 Allowed Frontend: https://real-customer.vercel.app`);
     });
 
+    // Initialize scheduled jobs
     initScheduledJobs().catch(err => {
-      console.warn('⚠️ Scheduled jobs failed:', err.message);
+      console.warn('⚠️ Scheduled jobs initialization failed:', err.message);
     });
 
   } catch (error) {
