@@ -9,6 +9,11 @@ const userSchema = new mongoose.Schema({
   avatar: { type: String },
   isActive: { type: Boolean, default: true },
   lastLogin: { type: Date },
+
+  // Password Reset Fields
+  resetPasswordOTP: { type: String, select: false },
+  resetPasswordExpires: { type: Date, select: false },
+
   settings: {
     businessName: String,
     businessPhone: String,
@@ -37,15 +42,15 @@ const userSchema = new mongoose.Schema({
     browserAlerts: { type: Boolean, default: true },
     dailySummary: { type: Boolean, default: true },
   },
-  // In User.js, add inside userSchema:
-subscription: {
-  status: { type: String, enum: ['active', 'inactive', 'trial'], default: 'trial' },
-  plan: String,
-  expiresAt: Date,
-  paystackCustomerCode: String,
-},
+  subscription: {
+    status: { type: String, enum: ['active', 'inactive', 'trial'], default: 'trial' },
+    plan: String,
+    expiresAt: Date,
+    paystackCustomerCode: String,
+  },
 }, { timestamps: true });
 
+// Password Hashing Middleware
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(12);
@@ -53,6 +58,7 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+// Password Match Method
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
