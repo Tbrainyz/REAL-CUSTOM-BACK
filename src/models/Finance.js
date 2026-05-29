@@ -19,10 +19,17 @@ const invoiceSchema = new mongoose.Schema({
   clientEmail: { type: String, trim: true, lowercase: true },
   items: [invoiceItemSchema],
   subtotal: { type: Number, default: 0 },
-  tax: { type: Number, default: 0 }, // percentage
+  tax: { type: Number, default: 0 },
   taxAmount: { type: Number, default: 0 },
   total: { type: Number, default: 0 },
-  status: { type: String, enum: ['draft', 'sent', 'paid', 'overdue'], default: 'draft' },
+  
+  // ✅ Updated status enum - includes 'pending'
+  status: { 
+    type: String, 
+    enum: ['pending', 'draft', 'sent', 'paid', 'overdue'], 
+    default: 'pending' 
+  },
+  
   dueDate: { type: Date },
   paidAt: { type: Date },
   notes: { type: String },
