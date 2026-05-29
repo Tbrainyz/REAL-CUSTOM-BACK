@@ -37,6 +37,13 @@ const userSchema = new mongoose.Schema({
     browserAlerts: { type: Boolean, default: true },
     dailySummary: { type: Boolean, default: true },
   },
+  // In User.js, add inside userSchema:
+subscription: {
+  status: { type: String, enum: ['active', 'inactive', 'trial'], default: 'trial' },
+  plan: String,
+  expiresAt: Date,
+  paystackCustomerCode: String,
+},
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {

@@ -28,9 +28,39 @@ exports.getInvoice = async (req, res, next) => {
 
 exports.createInvoice = async (req, res, next) => {
   try {
-    const invoice = await Invoice.create({ ...req.body, user: req.user._id });
-    res.status(201).json({ success: true, data: invoice });
-  } catch (err) { next(err); }
+    const { client, clientEmail, dueDate, tax = 0, items } = req.body;
+
+    if (!client || !items || items.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Client name and at least one item are required' 
+      });
+    }
+
+    // Generate unique invoice number per user
+    const invoiceCount = await Invoice.countDocuments({ user: req.user._id });
+    const invoiceNumber = `INV-${req.user._id.toString().slice(-6).toUpperCase()}-${(invoiceCount + 1).toString().padStart(4, '0')}`;
+
+    const invoice = await Invoice.create({
+      user: req.user._id,
+      invoiceNumber,                    // Unique per user
+      client,
+      clientEmail: clientEmail || '',
+      dueDate: dueDate || new Date(Date.now() + 7*24*60*60*1000),
+      tax: Number(tax),
+      items,
+      status: 'pending',
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      data: invoice 
+    });
+
+  } catch (err) {
+    console.error("Create Invoice Error:", err);
+    next(err);
+  }
 };
 
 exports.updateInvoice = async (req, res, next) => {
