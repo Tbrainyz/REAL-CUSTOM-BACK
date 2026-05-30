@@ -19,6 +19,7 @@ const app = express();
 // ==================== CORS ====================
 const allowedOrigins = [
   'http://localhost:3000',
+   'http://localhost:3001',
   'http://localhost:5173',
   'https://real-customer.vercel.app',
   'https://real-custom-back.onrender.com',
