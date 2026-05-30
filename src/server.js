@@ -91,7 +91,7 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Allowed Frontend: https://real-customer.vercel.app`);
+      console.log(`🌐 Allowed Frontend: https://myreal-customer-app.vercel.app`);
     });
 
     initScheduledJobs().catch(err => console.warn('⚠️ Scheduled jobs:', err.message));
