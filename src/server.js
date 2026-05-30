@@ -21,7 +21,7 @@ const allowedOrigins = [
   'http://localhost:3000',
    'http://localhost:3001',
   'http://localhost:5173',
-  'https://myreal-customer-app.vercel.app/',
+  'https://myreal-customer-app.vercel.app',
   'https://real-custom-back.onrender.com',
 ];
 
