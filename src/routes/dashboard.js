@@ -1,11 +1,15 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 const { getStats, getRecentActivity, getCashFlow } = require('../controllers/dashboardController');
-const { protect } = require('../middleware/auth');
+const { protect, requireRole } = require('../middleware/auth');
 
 router.use(protect);
-router.get('/stats', getStats);
+
+// Stats and activity: accessible to admin + finance + inventory (all roles see their own slice)
+router.get('/stats',    getStats);
 router.get('/activity', getRecentActivity);
-router.get('/cashflow', getCashFlow);
+
+// Cash flow: only finance team and admin
+router.get('/cashflow', requireRole('finance_manager'), getCashFlow);
 
 module.exports = router;
