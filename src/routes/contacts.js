@@ -7,6 +7,7 @@ const {
   getContacts, getContact, createContact, updateContact, deleteContact,
   importContacts, exportContacts,
 } = require('../controllers/contactController');
+const { checkTrial } = require('../middleware/checkTrial');
 const { protect, requireRole } = require('../middleware/auth');
 
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
@@ -24,7 +25,7 @@ const upload = multer({
   },
 });
 
-router.use(protect, requireRole('messaging_manager'));
+router.use(protect, checkTrial, requireRole('messaging_manager'));
 
 router.get('/export',              exportContacts);
 router.post('/import', upload.single('file'), importContacts);

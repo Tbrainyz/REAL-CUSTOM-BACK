@@ -4,9 +4,10 @@ const {
   getProducts, getProduct, createProduct, updateProduct, deleteProduct,
   addMovement, getMovements,
 } = require('../controllers/inventoryController');
+const { checkTrial } = require('../middleware/checkTrial');
 const { protect, requireRole } = require('../middleware/auth');
 
-router.use(protect, requireRole('inventory_manager'));
+router.use(protect, checkTrial, requireRole('inventory_manager'));
 
 router.get('/movements',  getMovements);
 router.post('/movements', addMovement);

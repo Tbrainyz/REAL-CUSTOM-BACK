@@ -1,15 +1,20 @@
 const express = require('express');
-const router = express.Router();
-const { initializePaystack, verifyPaystack, paystackWebhook, getBankDetails, getPaymentHistory } = require('../controllers/paymentController');
+const router  = express.Router();
+const {
+  initializePayment,
+  verifyPayment,
+  getPaymentStatus,
+  webhook,
+} = require('../controllers/paymentController');
 const { protect } = require('../middleware/auth');
 
-// Webhook — no auth (called by Paystack servers)
-router.post('/paystack/webhook', paystackWebhook);
+// Webhook — NO auth (called directly by Paystack servers)
+// Must be raw body for signature verification
+router.post('/paystack/webhook', express.raw({ type: 'application/json' }), webhook);
 
-router.use(protect);
-router.post('/paystack/initialize', initializePaystack);
-router.get('/paystack/verify/:reference', verifyPaystack);
-router.get('/bank-details', getBankDetails);
-router.get('/history', getPaymentHistory);
+// Protected routes — any logged-in user can trigger payment
+router.post('/paystack/initialize', protect, initializePayment);
+router.post('/paystack/verify',     protect, verifyPayment);
+router.get('/paystack/status/:reference', protect, getPaymentStatus);
 
 module.exports = router;

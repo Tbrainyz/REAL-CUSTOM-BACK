@@ -33,6 +33,16 @@ const invoiceSchema = new mongoose.Schema({
   dueDate: { type: Date },
   paidAt: { type: Date },
   notes: { type: String },
+
+  // Paystack
+  paystackReference: { type: String },
+  paystackData: {
+    transactionId: String,
+    channel:       String,
+    currency:      String,
+    paidAt:        String,
+    amount:        Number,
+  },
 }, { timestamps: true });
 
 // Auto-generate invoice number
@@ -62,6 +72,16 @@ const expenseSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
   receipt: { type: String },
   notes: { type: String },
+
+  // Paystack
+  paystackReference: { type: String },
+  paystackData: {
+    transactionId: String,
+    channel:       String,
+    currency:      String,
+    paidAt:        String,
+    amount:        Number,
+  },
 }, { timestamps: true });
 
 expenseSchema.index({ user: 1, date: -1 });

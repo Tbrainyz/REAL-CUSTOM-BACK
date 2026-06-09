@@ -31,7 +31,47 @@ exports.register = async (req, res, next) => {
     }
 
     // Self-registered users are always admin (workspace owners)
-    const user = await User.create({ name, email, password, role: ROLES.ADMIN });
+    // Give them a 3-day free trial
+    const trialEndsAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: ROLES.ADMIN,
+      subscription: {
+        status:      'trial',
+        trialEndsAt,
+      },
+    });
+
+    // Send welcome + trial email
+    const trialEndFormatted = trialEndsAt.toLocaleDateString('en-NG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const welcomeHtml = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:30px;background:#f9f9f9">
+        <div style="background:white;border-radius:12px;padding:30px;border:1px solid #e5e7eb">
+          <h2 style="color:#4F46E5;margin-top:0">Welcome to My Real Customer App! 🎉</h2>
+          <p>Hi <strong>${name}</strong>, your account has been created successfully.</p>
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:20px;margin:20px 0">
+            <h3 style="color:#1d4ed8;margin:0 0 8px 0">⏱ Your 3-Day Free Trial</h3>
+            <p style="margin:0;color:#1e40af">You have <strong>3 days</strong> of full access to explore all features.</p>
+            <p style="margin:8px 0 0 0;color:#3730a3;font-size:14px">Trial ends: <strong>${trialEndFormatted}</strong></p>
+          </div>
+          <p>After your trial, choose a subscription plan to continue:</p>
+          <ul style="color:#374151">
+            <li>Starter — ₦9,900/month</li>
+            <li>Professional — ₦24,900/month</li>
+            <li>Enterprise — ₦59,900/month</li>
+          </ul>
+          <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/login" 
+            style="display:inline-block;background:linear-gradient(135deg,#4F46E5,#6366F1);color:white;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:600;margin-top:12px">
+            Go to Dashboard →
+          </a>
+        </div>
+      </div>`;
+
+    sendEmail(email, 'Welcome! Your 3-day free trial has started', welcomeHtml)
+      .catch(err => console.warn('Welcome email failed:', err.message));
     sendToken(user, 201, res);
   } catch (err) {
     next(err);

@@ -68,16 +68,48 @@ const userSchema = new mongoose.Schema({
     dailySummary:   { type: Boolean, default: true  },
   },
   subscription: {
-    status: { type: String, enum: ['active', 'inactive', 'trial'], default: 'trial' },
-    plan:   String,
-    expiresAt: Date,
+    status: {
+      type:    String,
+      enum:    ['trial', 'active', 'inactive', 'cancelled'],
+      default: 'trial',
+    },
+    plan:                String,   // 'Starter' | 'Professional' | 'Enterprise'
+    billing:             String,   // 'monthly' | 'yearly'
+    trialEndsAt:         Date,     // set on registration: now + 3 days
+    currentPeriodEnd:    Date,     // next renewal date when subscribed
+    paystackReference:   String,   // payment reference
     paystackCustomerCode: String,
+    subscribedAt:        Date,
   },
+
+  // Set true on your own dev account to bypass trial — never expires
+  bypassTrial: { type: Boolean, default: false },
 }, { timestamps: true });
 
 // ─── Virtuals ────────────────────────────────────────────────────────────────
 userSchema.virtual('permissions').get(function () {
   return ROLE_PERMISSIONS[this.role] || [];
+});
+
+// How many days remain in trial (0 if expired)
+userSchema.virtual('trialDaysLeft').get(function () {
+  if (this.bypassTrial)                              return 999;
+  if (this.subscription?.status === 'active')        return 999;
+  if (!this.subscription?.trialEndsAt)               return 0;
+  const ms   = new Date(this.subscription.trialEndsAt) - Date.now();
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+});
+
+// Is the account allowed full access?
+userSchema.virtual('hasAccess').get(function () {
+  if (this.bypassTrial)                              return true;
+  if (this.subscription?.status === 'active')        return true;
+  if (this.subscription?.status === 'trial') {
+    return this.subscription.trialEndsAt
+      ? new Date(this.subscription.trialEndsAt) > new Date()
+      : true;
+  }
+  return false;
 });
 
 userSchema.virtual('isAdmin').get(function () {
