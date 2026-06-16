@@ -1,12 +1,12 @@
+const { attachWorkspace } = require('../middleware/workspace');
 const express = require('express');
 const router  = express.Router();
 const {
   sendNow, scheduleMessage, getScheduled, cancelScheduled, getLogs,
 } = require('../controllers/messageController');
-const { checkTrial } = require('../middleware/checkTrial');
 const { protect, requireRole } = require('../middleware/auth');
 
-router.use(protect, checkTrial, requireRole('messaging_manager'));
+router.use(protect, attachWorkspace, requireRole('messaging_manager'));
 
 router.post('/send',               sendNow);
 router.post('/schedule',           scheduleMessage);

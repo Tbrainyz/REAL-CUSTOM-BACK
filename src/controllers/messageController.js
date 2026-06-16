@@ -1,3 +1,4 @@
+const { getWorkspaceId } = require('../middleware/workspace');
 const Contact = require('../models/Contact');
 const { MessageLog, ScheduledMessage } = require('../models/Message');
 const { sendMessage } = require('../services/messagingService');
@@ -11,6 +12,7 @@ const scheduledJobs = {};
 // @route POST /api/messages/send
 exports.sendNow = async (req, res, next) => {
   try {
+    const wsId = getWorkspaceId(req);
     const { platform, content, contacts: contactIds } = req.body;
     if (!platform || !content || !contactIds?.length) {
       return res.status(400).json({ success: false, message: 'platform, content, and contacts are required' });
@@ -24,7 +26,7 @@ exports.sendNow = async (req, res, next) => {
 
     for (const contact of contacts) {
       const log = {
-        user: req.user._id,
+        user: wsId,
         contact: contact._id,
         contactName: contact.name,
         platform,
@@ -52,13 +54,14 @@ exports.sendNow = async (req, res, next) => {
 // @route POST /api/messages/schedule
 exports.scheduleMessage = async (req, res, next) => {
   try {
+    const wsId = getWorkspaceId(req);
     const { platform, content, contacts: contactIds, scheduledAt, recurrence, templateId } = req.body;
     if (!platform || !content || !scheduledAt) {
       return res.status(400).json({ success: false, message: 'platform, content, and scheduledAt are required' });
     }
 
     const scheduled = await ScheduledMessage.create({
-      user: req.user._id,
+      user: wsId,
       platform,
       content,
       contacts: contactIds || [],
@@ -149,7 +152,8 @@ exports.getScheduled = async (req, res, next) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const skip = (page - 1) * limit;
-    const query = { user: req.user._id };
+    const wsId = getWorkspaceId(req);
+    const query = { user: wsId };
     const [messages, total] = await Promise.all([
       ScheduledMessage.find(query).sort({ scheduledAt: 1 }).skip(skip).limit(Number(limit)).populate('templateId', 'name'),
       ScheduledMessage.countDocuments(query),
@@ -181,7 +185,8 @@ exports.getLogs = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status, platform } = req.query;
     const skip = (page - 1) * limit;
-    const query = { user: req.user._id };
+    const wsId = getWorkspaceId(req);
+    const query = { user: wsId };
     if (status) query.status = status;
     if (platform) query.platform = platform;
 

@@ -1,3 +1,4 @@
+const { getWorkspaceId } = require('../middleware/workspace');
 const MessageTemplate = require('../models/MessageTemplate');
 const { paginateResult } = require('../middleware/paginate');
 
@@ -5,7 +6,8 @@ exports.getTemplates = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, platform } = req.query;
     const skip = (page - 1) * limit;
-    const query = { user: req.user._id, isActive: true };
+    const wsId = getWorkspaceId(req);
+    const query = { user: wsId, isActive: true };
     if (platform) query.platform = { $in: [platform, 'all'] };
 
     const [templates, total] = await Promise.all([

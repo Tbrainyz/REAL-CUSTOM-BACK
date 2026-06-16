@@ -1,3 +1,4 @@
+const { getWorkspaceId } = require('../middleware/workspace');
 const { Invoice, Expense } = require('../models/Finance');
 const { paginateResult } = require('../middleware/paginate');
 
@@ -7,7 +8,8 @@ exports.getInvoices = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status } = req.query;
     const skip = (page - 1) * limit;
-    const query = { user: req.user._id };
+    const wsId = getWorkspaceId(req);
+    const query = { user: wsId };
     if (status) query.status = status;
 
     const [invoices, total] = await Promise.all([
@@ -28,6 +30,7 @@ exports.getInvoice = async (req, res, next) => {
 
 exports.createInvoice = async (req, res, next) => {
   try {
+    const wsId = getWorkspaceId(req);
     const { client, clientEmail, dueDate, tax = 0, items } = req.body;
 
     if (!client || !items || items.length === 0) {
@@ -38,11 +41,11 @@ exports.createInvoice = async (req, res, next) => {
     }
 
     // Generate unique invoice number per user
-    const invoiceCount = await Invoice.countDocuments({ user: req.user._id });
+    const invoiceCount = await Invoice.countDocuments({ user: wsId });
     const invoiceNumber = `INV-${req.user._id.toString().slice(-6).toUpperCase()}-${(invoiceCount + 1).toString().padStart(4, '0')}`;
 
     const invoice = await Invoice.create({
-      user: req.user._id,
+      user: wsId,
       invoiceNumber,                    // Unique per user
       client,
       clientEmail: clientEmail || '',
@@ -101,7 +104,8 @@ exports.getExpenses = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, category, startDate, endDate } = req.query;
     const skip = (page - 1) * limit;
-    const query = { user: req.user._id };
+    const wsId = getWorkspaceId(req);
+    const query = { user: wsId };
     if (category) query.category = category;
     if (startDate || endDate) {
       query.date = {};

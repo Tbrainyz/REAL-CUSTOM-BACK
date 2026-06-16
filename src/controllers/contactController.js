@@ -1,57 +1,57 @@
 const Contact = require('../models/Contact');
-const { paginateResult } = require('../middleware/paginate');
-const csv = require('csv-parser');
-const fs = require('fs');
+const { getWorkspaceId } = require('../middleware/workspace');
 
-// @route GET /api/contacts
 exports.getContacts = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, search, segment, tags } = req.query;
-    const skip = (page - 1) * limit;
+    const wsId = getWorkspaceId(req);
+    const { page = 1, limit = 20, search, segment, tag } = req.query;
+    const query = { user: wsId, isActive: true };
 
-    const query = { user: req.user._id, isActive: true };
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
+        { name:      { $regex: search, $options: 'i' } },
+        { email:     { $regex: search, $options: 'i' } },
+        { phone:     { $regex: search, $options: 'i' } },
+        { company:   { $regex: search, $options: 'i' } },
+        { whatsapp:  { $regex: search, $options: 'i' } },
+        { instagram: { $regex: search, $options: 'i' } },
+        { facebook:  { $regex: search, $options: 'i' } },
+        { tiktok:    { $regex: search, $options: 'i' } },
       ];
     }
     if (segment) query.segment = segment;
-    if (tags) query.tags = { $in: tags.split(',') };
+    if (tag)     query.tags    = tag;
 
-    const [contacts, total] = await Promise.all([
-      Contact.find(query).sort({ name: 1 }).skip(skip).limit(Number(limit)),
-      Contact.countDocuments(query),
-    ]);
+    const skip  = (page - 1) * limit;
+    const total = await Contact.countDocuments(query);
+    const data  = await Contact.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit));
 
-    res.json({ success: true, ...paginateResult(contacts, total, Number(page), Number(limit)) });
+    res.json({ success: true, data, pagination: { total, page: Number(page), pages: Math.ceil(total / limit), limit: Number(limit) } });
   } catch (err) { next(err); }
 };
 
-// @route GET /api/contacts/:id
 exports.getContact = async (req, res, next) => {
   try {
-    const contact = await Contact.findOne({ _id: req.params.id, user: req.user._id });
+    const wsId    = getWorkspaceId(req);
+    const contact = await Contact.findOne({ _id: req.params.id, user: wsId });
     if (!contact) return res.status(404).json({ success: false, message: 'Contact not found' });
     res.json({ success: true, data: contact });
   } catch (err) { next(err); }
 };
 
-// @route POST /api/contacts
 exports.createContact = async (req, res, next) => {
   try {
-    const contact = await Contact.create({ ...req.body, user: req.user._id });
+    const wsId   = getWorkspaceId(req);
+    const contact = await Contact.create({ ...req.body, user: wsId });
     res.status(201).json({ success: true, data: contact });
   } catch (err) { next(err); }
 };
 
-// @route PUT /api/contacts/:id
 exports.updateContact = async (req, res, next) => {
   try {
+    const wsId    = getWorkspaceId(req);
     const contact = await Contact.findOneAndUpdate(
-      { _id: req.params.id, user: req.user._id },
+      { _id: req.params.id, user: wsId },
       req.body,
       { new: true, runValidators: true }
     );
@@ -60,81 +60,74 @@ exports.updateContact = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// @route DELETE /api/contacts/:id
 exports.deleteContact = async (req, res, next) => {
   try {
-    const contact = await Contact.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+    const wsId    = getWorkspaceId(req);
+    const contact = await Contact.findOneAndDelete({ _id: req.params.id, user: wsId });
     if (!contact) return res.status(404).json({ success: false, message: 'Contact not found' });
     res.json({ success: true, message: 'Contact deleted' });
   } catch (err) { next(err); }
 };
 
-// @route POST /api/contacts/import
 exports.importContacts = async (req, res, next) => {
   try {
+    const wsId = getWorkspaceId(req);
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-    const contacts = [];
-    const errors = [];
+    const fs   = require('fs');
+    const path = require('path');
+    const ext  = path.extname(req.file.originalname).toLowerCase();
+    let rows   = [];
 
-    await new Promise((resolve, reject) => {
-      fs.createReadStream(req.file.path)
-        .pipe(csv())
-        .on('data', (row) => {
-          const contact = {
-            user: req.user._id,
-            name: row.name || row.Name || row.full_name || '',
-            company: row.company || row.Company || '',
-            email: row.email || row.Email || '',
-            phone: row.phone || row.Phone || row.mobile || '',
-            whatsapp: row.whatsapp || row.WhatsApp || row.whatsapp_number || '',
-            facebook: row.facebook || row.Facebook || '',
-            instagram: row.instagram || row.Instagram || '',
-            tiktok: row.tiktok || row.TikTok || '',
-            segment: row.segment || row.Segment || '',
-            tags: row.tags ? row.tags.split(',').map(t => t.trim()) : [],
-            source: 'import',
-          };
-          if (contact.name) contacts.push(contact);
-          else errors.push(row);
-        })
-        .on('end', resolve)
-        .on('error', reject);
-    });
-
-    // Upsert contacts
-    let imported = 0;
-    for (const c of contacts) {
-      await Contact.findOneAndUpdate(
-        { user: req.user._id, $or: [{ phone: c.phone }, { email: c.email }, { name: c.name }].filter(x => Object.values(x)[0]) },
-        c,
-        { upsert: true, new: true }
-      );
-      imported++;
+    if (ext === '.csv') {
+      const csv  = require('csv-parse/sync');
+      const text = fs.readFileSync(req.file.path, 'utf8');
+      rows = csv.parse(text, { columns: true, skip_empty_lines: true });
+    } else {
+      const XLSX = require('xlsx');
+      const wb   = XLSX.readFile(req.file.path);
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
     }
 
-    // Clean up temp file
-    fs.unlinkSync(req.file.path);
+    let created = 0, skipped = 0;
+    for (const r of rows) {
+      const phone = r.phone || r.Phone || r.PHONE || '';
+      const email = r.email || r.Email || r.EMAIL || '';
+      const name  = r.name  || r.Name  || r.NAME  || 'Unknown';
+      if (!phone && !email && !name) { skipped++; continue; }
+      try {
+        await Contact.findOneAndUpdate(
+          { user: wsId, $or: [phone && { phone }, email && { email }, { name }].filter(x => Object.values(x)[0]) },
+          { $setOnInsert: { user: wsId, name, phone, email, company: r.company || r.Company || '', whatsapp: r.whatsapp || r.WhatsApp || '' } },
+          { upsert: true, new: true }
+        );
+        created++;
+      } catch { skipped++; }
+    }
 
-    res.json({ success: true, data: { imported, errors: errors.length } });
-  } catch (err) {
-    if (req.file?.path) fs.unlinkSync(req.file.path);
-    next(err);
-  }
+    fs.unlinkSync(req.file.path);
+    res.json({ success: true, message: `Import done: ${created} added, ${skipped} skipped` });
+  } catch (err) { next(err); }
 };
 
-// @route GET /api/contacts/export
 exports.exportContacts = async (req, res, next) => {
   try {
-    const contacts = await Contact.find({ user: req.user._id, isActive: true });
-    const headers = 'name,company,email,phone,whatsapp,facebook,instagram,tiktok,segment,tags\n';
-    const rows = contacts.map(c =>
-      [c.name, c.company, c.email, c.phone, c.whatsapp, c.facebook, c.instagram, c.tiktok, c.segment, c.tags.join(';')]
-        .map(v => `"${(v || '').replace(/"/g, '""')}"`)
-        .join(',')
-    ).join('\n');
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=contacts.csv');
-    res.send(headers + rows);
+    const wsId    = getWorkspaceId(req);
+    const contacts = await Contact.find({ user: wsId, isActive: true });
+    const rows = contacts.map(c => ({
+      name: c.name, email: c.email, phone: c.phone, company: c.company,
+      whatsapp: c.whatsapp, facebook: c.facebook, instagram: c.instagram,
+      tiktok: c.tiktok, segment: c.segment, tags: c.tags?.join(', '),
+    }));
+
+    const XLSX = require('xlsx');
+    const ws   = XLSX.utils.json_to_sheet(rows);
+    const wb   = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Contacts');
+    const buf  = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename=contacts.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
   } catch (err) { next(err); }
 };

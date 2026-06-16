@@ -44,8 +44,7 @@ app.use(
 app.options('*', cors());
 
 // Paystack webhook
-// Raw body for Paystack webhook signature verification
-app.use('/payments/paystack/webhook', express.raw({ type: '*/*' }));
+app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -70,9 +69,9 @@ app.use('/invoices', require('./routes/invoices'));
 app.use('/expenses', require('./routes/expenses'));
 app.use('/inventory', require('./routes/inventory'));
 app.use('/dashboard', require('./routes/dashboard'));
-app.use('/payments',     require('./routes/payments'));
-app.use('/subscription',  require('./routes/subscription'));
+app.use('/payments', require('./routes/payments'));
 app.use('/users', require('./routes/users'));
+app.use('/debug', require('./routes/debug'));
 
 // 404 Handler
 app.use((req, res) => {

@@ -1,10 +1,10 @@
+const { attachWorkspace } = require('../middleware/workspace');
 const express = require('express');
 const router  = express.Router();
 const { getStats, getRecentActivity, getCashFlow } = require('../controllers/dashboardController');
-const { checkTrial } = require('../middleware/checkTrial');
 const { protect, requireRole } = require('../middleware/auth');
 
-router.use(protect, checkTrial);
+router.use(protect, attachWorkspace);
 
 // Stats and activity: accessible to admin + finance + inventory (all roles see their own slice)
 router.get('/stats',    getStats);

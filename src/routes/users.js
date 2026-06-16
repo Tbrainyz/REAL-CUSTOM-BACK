@@ -1,6 +1,5 @@
 const express = require('express');
 const router  = express.Router();
-const { checkTrial } = require('../middleware/checkTrial');
 const { protect, adminOnly } = require('../middleware/auth');
 const {
   getUsers,
@@ -14,7 +13,7 @@ const {
 } = require('../controllers/userController');
 
 // All user-management routes require: logged in + admin role
-router.use(protect, checkTrial, adminOnly);
+router.use(protect, adminOnly);
 
 router.get('/',           getUsers);       // GET  /users
 router.get('/roles',      getRoles);       // GET  /users/roles

@@ -1,3 +1,4 @@
+const { getWorkspaceId } = require('../middleware/workspace');
 const { Product, StockMovement } = require('../models/Inventory');
 const { paginateResult } = require('../middleware/paginate');
 
@@ -7,7 +8,8 @@ exports.getProducts = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, search, category, lowStock } = req.query;
     const skip = (page - 1) * limit;
-    const query = { user: req.user._id, isActive: true };
+    const wsId = getWorkspaceId(req);
+    const query = { user: wsId, isActive: true };
     if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { sku: { $regex: search, $options: 'i' } }];
     if (category) query.category = category;
     if (lowStock === 'true') query.$expr = { $lte: ['$quantity', '$reorderLevel'] };
@@ -58,6 +60,7 @@ exports.deleteProduct = async (req, res, next) => {
 
 exports.addMovement = async (req, res, next) => {
   try {
+    const wsId = getWorkspaceId(req);
     const { productId, type, quantity, reference, notes } = req.body;
     if (!productId || !type || !quantity) {
       return res.status(400).json({ success: false, message: 'productId, type, and quantity are required' });
@@ -84,7 +87,7 @@ exports.addMovement = async (req, res, next) => {
 
     // Create movement record
     const movement = await StockMovement.create({
-      user: req.user._id,
+      user: wsId,
       product: productId,
       type,
       quantity: Number(quantity),
@@ -104,7 +107,8 @@ exports.getMovements = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, type, productId } = req.query;
     const skip = (page - 1) * limit;
-    const query = { user: req.user._id };
+    const wsId = getWorkspaceId(req);
+    const query = { user: wsId };
     if (type) query.type = type;
     if (productId) query.product = productId;
 
