@@ -1,46 +1,45 @@
-const Contact      = require('../models/Contact');
-const MessageLog   = require('../models/Message');
-const { Invoice, Expense } = require('../models/Finance');
-const { Product }  = require('../models/Inventory');
-const { getWorkspaceId } = require('../middleware/workspace');
+const Contact                    = require('../models/Contact');
+const { MessageLog, ScheduledMessage } = require('../models/Message');
+const { Invoice, Expense }       = require('../models/Finance');
+const { Product, StockMovement } = require('../models/Inventory');
+const { getWorkspaceId }         = require('../middleware/workspace');
 
 // ─── GET /dashboard/stats ─────────────────────────────────────────────────────
 exports.getStats = async (req, res, next) => {
   try {
-    const wsId = getWorkspaceId(req);   // ← workspace: sees ALL sub-user data
+    const wsId = getWorkspaceId(req);
 
     const [
       totalContacts,
       messagesSent,
-      messagesPending,
       messagesFailed,
+      scheduledCount,
       paidInvoices,
-      allExpenses,
+      expenseAgg,
       lowStockItems,
       totalProducts,
       totalMovements,
-      scheduled,
     ] = await Promise.all([
       Contact.countDocuments({ user: wsId, isActive: true }),
       MessageLog.countDocuments({ user: wsId, status: 'sent' }),
-      MessageLog.countDocuments({ user: wsId, status: 'pending' }),
       MessageLog.countDocuments({ user: wsId, status: 'failed' }),
-      Invoice.find({ user: wsId, status: 'paid' }),
-      Expense.aggregate([{ $match: { user: wsId } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-      Product.countDocuments({ user: wsId, isActive: true, $expr: { $lte: ['$quantity', '$reorderLevel'] } }),
+      ScheduledMessage.countDocuments({ user: wsId, status: 'pending' }),
+      Invoice.find({ user: wsId, status: 'paid' }).select('total'),
+      Expense.aggregate([
+        { $match: { user: wsId } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      Product.countDocuments({
+        user: wsId,
+        isActive: true,
+        $expr: { $lte: ['$quantity', '$reorderLevel'] }
+      }),
       Product.countDocuments({ user: wsId, isActive: true }),
-      // StockMovement count if exists
-      (async () => {
-        try {
-          const { StockMovement } = require('../models/Inventory');
-          return await StockMovement.countDocuments({ user: wsId });
-        } catch { return 0; }
-      })(),
-      MessageLog.countDocuments({ user: wsId, status: 'pending', scheduledAt: { $exists: true } }),
+      StockMovement.countDocuments({ user: wsId }),
     ]);
 
     const totalRevenue  = paidInvoices.reduce((s, i) => s + (i.total || 0), 0);
-    const totalExpenses = allExpenses[0]?.total || 0;
+    const totalExpenses = expenseAgg[0]?.total || 0;
     const netCashFlow   = totalRevenue - totalExpenses;
 
     res.json({
@@ -48,9 +47,8 @@ exports.getStats = async (req, res, next) => {
       data: {
         totalContacts,
         messagesSent,
-        messagesPending,
         messagesFailed,
-        scheduled,
+        scheduled:      scheduledCount,
         totalRevenue,
         totalExpenses,
         netCashFlow,
@@ -59,7 +57,10 @@ exports.getStats = async (req, res, next) => {
         totalMovements,
       },
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Dashboard stats error:', err.message);
+    next(err);
+  }
 };
 
 // ─── GET /dashboard/activity ──────────────────────────────────────────────────
@@ -71,7 +72,10 @@ exports.getRecentActivity = async (req, res, next) => {
       .limit(10)
       .populate('contact', 'name');
     res.json({ success: true, data: logs });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Dashboard activity error:', err.message);
+    next(err);
+  }
 };
 
 // ─── GET /dashboard/cashflow ──────────────────────────────────────────────────
@@ -118,5 +122,8 @@ exports.getCashFlow = async (req, res, next) => {
     });
 
     res.json({ success: true, data: months });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Dashboard cashflow error:', err.message);
+    next(err);
+  }
 };
