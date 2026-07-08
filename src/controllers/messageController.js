@@ -19,7 +19,7 @@ exports.sendNow = async (req, res, next) => {
     }
 
     const user = await User.findById(req.user._id).select('+apiKeys.whatsappToken +apiKeys.facebookToken +apiKeys.instagramToken');
-    const contacts = await Contact.find({ _id: { $in: contactIds }, user: req.user._id });
+    const contacts = await Contact.find({ _id: { $in: contactIds }, user: wsId });
 
     const results = { sent: 0, failed: 0 };
     const logs = [];

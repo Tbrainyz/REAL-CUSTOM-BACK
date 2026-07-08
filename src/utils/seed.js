@@ -33,7 +33,7 @@ const seed = async () => {
         { user: adminUser._id, name: 'Emeka Chukwu', company: 'Lagos Supplies', phone: '+2348023456789', whatsapp: '+2348023456789', facebook: 'emeka.chukwu', tags: ['Lead'], segment: 'Prospect', source: 'manual' },
         { user: adminUser._id, name: 'Ngozi Eze', phone: '+2348034567890', whatsapp: '+2348034567890', tags: [], segment: 'Customer', source: 'manual' },
         { user: adminUser._id, name: 'Kemi Adesanya', company: 'Adesanya Group', phone: '+2348045678901', whatsapp: '+2348045678901', instagram: '@kemi_a', tags: ['VIP', 'Premium'], segment: 'Customer', source: 'manual' },
-      
+        { user: adminUser._id, name: 'Tunde Bakare', phone: '+2348056789012', tags: [], segment: 'Lead', source: 'manual' },
       ]);
       console.log('✅ Sample contacts created');
     }
