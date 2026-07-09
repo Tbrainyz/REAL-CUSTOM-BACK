@@ -46,9 +46,21 @@ exports.sendNow = async (req, res, next) => {
       logs.push(log);
     }
 
-    await MessageLog.insertMany(logs);
-    res.json({ success: true, data: results, message: `Sent: ${results.sent}, Failed: ${results.failed}` });
-  } catch (err) { next(err); }
+    if (logs.length > 0) {
+      await MessageLog.insertMany(logs).catch(e => console.warn('Log insert failed:', e.message));
+    }
+
+    // Always return 200 with results — let frontend decide what to show
+    res.json({
+      success: true,
+      data: results,
+      message: `Sent: ${results.sent}, Failed: ${results.failed}`,
+      details: logs.map(l => ({ contact: l.contactName, status: l.status, error: l.error })),
+    });
+  } catch (err) {
+    console.error('sendNow error:', err.message);
+    next(err);
+  }
 };
 
 // @route POST /api/messages/schedule
