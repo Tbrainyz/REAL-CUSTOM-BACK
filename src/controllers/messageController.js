@@ -18,7 +18,7 @@ exports.sendNow = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'platform, content, and contacts are required' });
     }
 
-    const user = await User.findById(req.user._id).select('+apiKeys.whatsappToken +apiKeys.facebookToken +apiKeys.instagramToken');
+    const user = await User.findById(req.user._id).select('+apiKeys.whatsappToken +apiKeys.facebookToken +apiKeys.instagramToken +apiKeys.smartsmsToken');
     const contacts = await Contact.find({ _id: { $in: contactIds }, user: wsId });
 
     const results = { sent: 0, failed: 0 };
@@ -42,6 +42,7 @@ exports.sendNow = async (req, res, next) => {
         log.status = 'failed';
         log.error = err.message;
         results.failed++;
+        console.error(`❌ Message failed — platform: ${platform}, contact: ${contact.name}, error: ${err.message}`);
       }
       logs.push(log);
     }
