@@ -72,6 +72,7 @@ app.use('/dashboard', require('./routes/dashboard'));
 app.use('/payments', require('./routes/payments'));
 app.use('/users', require('./routes/users'));
 app.use('/debug', require('./routes/debug'));
+app.use('/subscription', require('./routes/subscription'));
 
 // 404 Handler
 app.use((req, res) => {
