@@ -86,3 +86,39 @@ exports.testWhatsApp = async (req, res) => {
     });
   }
 };
+
+// ─── POST /debug/test-sms (admin only) ───────────────────────────────────────
+exports.testSMS = async (req, res) => {
+  const { to, message } = req.body || {};
+
+  if (!to) {
+    return res.status(400).json({
+      success: false,
+      message: 'Provide "to" phone number — e.g. { "to": "08012345678" }'
+    });
+  }
+
+  const envCheck = {
+    SMARTSMS_TOKEN_set:    !!process.env.SMARTSMS_TOKEN,
+    SMARTSMS_TOKEN_prefix: process.env.SMARTSMS_TOKEN?.slice(0, 15) + '...',
+    SMARTSMS_SENDER_ID:    process.env.SMARTSMS_SENDER_ID || 'NOT SET ❌',
+  };
+
+  try {
+    const { sendSMS } = require('../services/messagingService');
+    const result = await sendSMS(
+      to,
+      message || 'Test SMS from My Real Customer App ✅',
+      {} // use env vars
+    );
+    res.json({ success: true, message: `SMS sent to ${to}`, result, envCheck });
+  } catch (err) {
+    console.error('testSMS error:', err.message);
+    res.status(500).json({
+      success: false,
+      message: 'SMS send failed',
+      error: err.message,
+      envCheck,
+    });
+  }
+};

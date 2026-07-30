@@ -1,5 +1,4 @@
-const axios       = require('axios');
-const User        = require('../models/User');
+const axios         = require('axios');
 const { sendEmail } = require('./emailService');
 
 const META_API_VERSION = 'v22.0';
@@ -7,7 +6,7 @@ const META_API_VERSION = 'v22.0';
 // ─── Personalize content ──────────────────────────────────────────────────────
 const personalizeMessage = (content, contact) => {
   return content
-    .replace(/\{\{FirstName\}\}/gi, contact.name?.split(' ')[0] || contact.name || '')
+    .replace(/\{\{FirstName\}\}/gi, contact.name?.split(' ')[0] || '')
     .replace(/\{\{FullName\}\}/gi,  contact.name    || '')
     .replace(/\{\{Company\}\}/gi,   contact.company || '')
     .replace(/\{\{Phone\}\}/gi,     contact.phone   || '')
@@ -20,8 +19,8 @@ const sendWhatsApp = async (to, message, userApiKeys) => {
   const token   = userApiKeys?.whatsappToken   || process.env.WHATSAPP_TOKEN;
   const phoneId = userApiKeys?.whatsappPhoneId || process.env.WHATSAPP_PHONE_ID;
 
-  if (!token)   throw new Error('WhatsApp access token not configured. Add it in Settings → API Keys.');
-  if (!phoneId) throw new Error('WhatsApp Phone Number ID not configured. Add it in Settings → API Keys.');
+  if (!token)   throw new Error('WhatsApp access token not configured.');
+  if (!phoneId) throw new Error('WhatsApp Phone Number ID not configured.');
 
   const phone = to.replace(/[\s\-\(\)\+]/g, '');
   const url   = `https://graph.facebook.com/${META_API_VERSION}/${phoneId}/messages`;
@@ -36,38 +35,88 @@ const sendWhatsApp = async (to, message, userApiKeys) => {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       timeout: 15000,
     });
-    console.log(`✅ WhatsApp sent → ${phone}`);
+    console.log(`✅ WhatsApp sent to ${phone}`);
     return response.data;
   } catch (err) {
     const metaError = err.response?.data?.error;
-    const msg = metaError
-      ? `WhatsApp API error: ${metaError.message} (code ${metaError.code})`
+    throw new Error(metaError
+      ? `WhatsApp error: ${metaError.message} (code ${metaError.code})`
+      : err.message
+    );
+  }
+};
+
+// ─── SMS via SmartSMS Solutions ───────────────────────────────────────────────
+const sendSMS = async (phone, message, userApiKeys) => {
+  const token    = userApiKeys?.smartsmsToken    || process.env.SMARTSMS_TOKEN;
+  const senderId = userApiKeys?.smartsmsSenderId || process.env.SMARTSMS_SENDER_ID;
+
+  if (!token)    throw new Error('SmartSMS token not set. Add SMARTSMS_TOKEN to Render environment.');
+  if (!senderId) throw new Error('SmartSMS Sender ID not set. Add SMARTSMS_SENDER_ID to Render environment.');
+
+  // Normalize phone to international format: 08012345678 → 2348012345678
+  let normalized = phone.replace(/[\s\-\(\)\+]/g, '');
+  if (normalized.startsWith('0')) {
+    normalized = '234' + normalized.slice(1);
+  }
+
+  console.log(`📱 Sending SMS via SmartSMS to ${normalized} from ${senderId}`);
+
+  try {
+    const params = new URLSearchParams({
+      token:   token,
+      sender:  senderId,
+      to:      normalized,
+      message: message,
+      type:    '0',   // 0 = plain text
+      routing: '3',   // 3 = corporate route (bypasses DND)
+    });
+
+    const response = await axios.post(
+      'https://app.smartsmssolutions.com/io/api/client/v1/sms/',
+      params.toString(),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 15000,
+      }
+    );
+
+    const data = response.data;
+    console.log(`SmartSMS response:`, JSON.stringify(data));
+
+    // SmartSMS returns code 1000 for success
+    const code = String(data?.code);
+    if (code === '1000' || data?.state === 'success') {
+      console.log(`✅ SMS sent to ${normalized}`);
+      return { messageId: data?.messageid || `sms_${Date.now()}`, status: 'sent', raw: data };
+    } else {
+      throw new Error(data?.message || data?.Message || `SmartSMS error code: ${code}`);
+    }
+  } catch (err) {
+    const errMsg = err.response?.data
+      ? JSON.stringify(err.response.data)
       : err.message;
-    console.error(`❌ WhatsApp failed → ${phone}: ${JSON.stringify(metaError || err.message)}`);
-    throw new Error(msg);
+    console.error(`❌ SMS failed to ${normalized}: ${errMsg}`);
+    throw new Error(`SMS failed: ${errMsg}`);
   }
 };
 
 // ─── Email via Brevo ──────────────────────────────────────────────────────────
-const sendEmailMessage = async (contact, subject, htmlContent) => {
+const sendEmailMessage = async (contact, subject, htmlContent, attachments = []) => {
   if (!contact.email) throw new Error(`Contact "${contact.name}" has no email address`);
-
-  // Wrap plain text in simple HTML if not already HTML
   const isHtml = htmlContent.trim().startsWith('<');
   const html   = isHtml
     ? htmlContent
     : `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333">
         ${htmlContent.replace(/\n/g, '<br>')}
        </div>`;
-
-  return await sendEmail(contact.email, subject || 'Message from My Real Customer App', html);
+  return await sendEmail(contact.email, subject || 'Message from My Real Customer App', html, attachments);
 };
 
 // ─── Facebook ─────────────────────────────────────────────────────────────────
 const sendFacebook = async (recipientId, message, userApiKeys) => {
   const token = userApiKeys?.facebookToken || process.env.FACEBOOK_PAGE_TOKEN;
   if (!token) throw new Error('Facebook Page access token not configured.');
-
   const response = await axios.post(
     `https://graph.facebook.com/${META_API_VERSION}/me/messages`,
     { recipient: { id: recipientId }, message: { text: message } },
@@ -80,7 +129,6 @@ const sendFacebook = async (recipientId, message, userApiKeys) => {
 const sendInstagram = async (recipientId, message, userApiKeys) => {
   const token = userApiKeys?.instagramToken || process.env.INSTAGRAM_ACCESS_TOKEN;
   if (!token) throw new Error('Instagram access token not configured.');
-
   const response = await axios.post(
     `https://graph.facebook.com/${META_API_VERSION}/me/messages`,
     { recipient: { id: recipientId }, message: { text: message } },
@@ -89,15 +137,8 @@ const sendInstagram = async (recipientId, message, userApiKeys) => {
   return response.data;
 };
 
-// ─── SMS placeholder ──────────────────────────────────────────────────────────
-const sendSMS = async (phone, message) => {
-  // Wire up Termii or any SMS provider here
-  console.log(`[SMS] To: ${phone} | Message: ${message}`);
-  return { messageId: `sms_${Date.now()}`, status: 'sent' };
-};
-
 // ─── Main dispatch ────────────────────────────────────────────────────────────
-const sendMessage = async (platform, contact, content, userApiKeys) => {
+const sendMessage = async (platform, contact, content, userApiKeys, options = {}) => {
   const text = personalizeMessage(content, contact);
 
   switch (platform) {
@@ -107,12 +148,17 @@ const sendMessage = async (platform, contact, content, userApiKeys) => {
       return await sendWhatsApp(num, text, userApiKeys);
     }
 
+    case 'sms': {
+      const num = contact.phone || contact.whatsapp;
+      if (!num) throw new Error(`Contact "${contact.name}" has no phone number`);
+      return await sendSMS(num, text, userApiKeys);
+    }
+
     case 'email': {
-      // For email, content can be "Subject | Body" separated by pipe, or just body
       const parts   = content.split('|');
       const subject = parts.length > 1 ? personalizeMessage(parts[0].trim(), contact) : 'Message from My Real Customer App';
       const body    = personalizeMessage(parts.length > 1 ? parts.slice(1).join('|').trim() : content, contact);
-      return await sendEmailMessage(contact, subject, body);
+      return await sendEmailMessage(contact, subject, body, options?.attachments || []);
     }
 
     case 'facebook':
@@ -123,15 +169,9 @@ const sendMessage = async (platform, contact, content, userApiKeys) => {
       if (!contact.instagram) throw new Error(`Contact "${contact.name}" has no Instagram handle`);
       return await sendInstagram(contact.instagram, text, userApiKeys);
 
-    case 'sms': {
-      const num = contact.phone || contact.whatsapp;
-      if (!num) throw new Error(`Contact "${contact.name}" has no phone number`);
-      return await sendSMS(num, text);
-    }
-
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }
 };
 
-module.exports = { sendMessage, sendWhatsApp, personalizeMessage };
+module.exports = { sendMessage, sendWhatsApp, sendSMS, personalizeMessage };

@@ -1,4 +1,6 @@
 const axios = require('axios');
+const fs    = require('fs');
+const path  = require('path');
 
 (function logStartupCheck() {
   const hasKey    = !!process.env.BREVO_API_KEY;
@@ -13,33 +15,66 @@ const axios = require('axios');
   console.log('───────────────────────────────────────────');
 })();
 
-exports.sendEmail = async (to, subject, htmlContent) => {
-  if (!process.env.BREVO_API_KEY)     throw new Error('BREVO_API_KEY not set');
+// ─── Send email (with optional attachments) ───────────────────────────────────
+// attachments: array of { filename, content (base64), type }
+// OR array of file paths (strings)
+exports.sendEmail = async (to, subject, htmlContent, attachments = []) => {
+  if (!process.env.BREVO_API_KEY)      throw new Error('BREVO_API_KEY not set');
   if (!process.env.BREVO_SENDER_EMAIL) throw new Error('BREVO_SENDER_EMAIL not set');
 
   const payload = {
-    sender: { email: process.env.BREVO_SENDER_EMAIL, name: process.env.BREVO_SENDER_NAME || 'My Real Customer App' },
-    to:     [{ email: to }],
+    sender: {
+      email: process.env.BREVO_SENDER_EMAIL,
+      name:  process.env.BREVO_SENDER_NAME || 'My Real Customer App',
+    },
+    to:      [{ email: to }],
     subject,
     htmlContent,
   };
 
-  console.log(`📤 Sending email → ${to} | "${subject}"`);
+  // Process attachments
+  if (attachments && attachments.length > 0) {
+    payload.attachment = attachments.map(att => {
+      // If it's a file path string
+      if (typeof att === 'string') {
+        const fileContent = fs.readFileSync(att);
+        return {
+          name:    path.basename(att),
+          content: fileContent.toString('base64'),
+        };
+      }
+      // If it's already an object { filename, content, type }
+      return {
+        name:    att.filename || att.name || 'attachment',
+        content: att.content,  // must be base64
+      };
+    });
+  }
+
+  console.log(`📤 Sending email → ${to} | "${subject}" | ${attachments.length} attachment(s)`);
 
   try {
-    const response = await axios.post('https://api.brevo.com/v3/smtp/email', payload, {
-      headers: { 'accept': 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
-      timeout: 15000,
-    });
+    const response = await axios.post(
+      'https://api.brevo.com/v3/smtp/email',
+      payload,
+      {
+        headers: {
+          'accept':       'application/json',
+          'api-key':      process.env.BREVO_API_KEY,
+          'content-type': 'application/json',
+        },
+        timeout: 20000,
+      }
+    );
     console.log(`✅ Email sent to ${to} — messageId: ${response.data?.messageId}`);
     return response.data;
   } catch (err) {
     const status = err.response?.status;
     const data   = err.response?.data;
-    console.error(`❌ Email FAILED to ${to} | Status: ${status} | ${JSON.stringify(data)} | ${err.message}`);
-    if (status === 403) console.error('   FIX: Remove IP restrictions on your Brevo API key (app.brevo.com → SMTP & API → API Keys)');
-    if (status === 401) console.error('   FIX: Invalid Brevo API key — regenerate in Brevo dashboard and update BREVO_API_KEY on Render');
-    if (status === 400) console.error('   FIX: Sender email not verified — check Brevo → Senders, Domains, IPs');
+    console.error(`❌ Email FAILED → ${to} | Status: ${status} | ${JSON.stringify(data)}`);
+    if (status === 403) console.error('   FIX: Remove IP restrictions on Brevo API key');
+    if (status === 401) console.error('   FIX: Invalid Brevo API key');
+    if (status === 400) console.error('   FIX: Bad request —', JSON.stringify(data));
     throw err;
   }
 };

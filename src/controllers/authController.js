@@ -114,14 +114,16 @@ exports.changePassword = async (req, res, next) => {
 // ─── PROTECTED (admin only): Update API keys ──────────────────────────────────
 exports.updateApiKeys = async (req, res, next) => {
   try {
-    const { whatsappToken, whatsappPhoneId, facebookToken, facebookPageId, instagramToken, paystackKey } = req.body;
+    const { whatsappToken, whatsappPhoneId, facebookToken, facebookPageId, instagramToken, paystackKey, smartsmsToken, smartsmsSenderId } = req.body;
     const apiKeys = {};
-    if (whatsappToken)   apiKeys['apiKeys.whatsappToken']   = whatsappToken;
-    if (whatsappPhoneId) apiKeys['apiKeys.whatsappPhoneId'] = whatsappPhoneId;
-    if (facebookToken)   apiKeys['apiKeys.facebookToken']   = facebookToken;
-    if (facebookPageId)  apiKeys['apiKeys.facebookPageId']  = facebookPageId;
-    if (instagramToken)  apiKeys['apiKeys.instagramToken']  = instagramToken;
-    if (paystackKey)     apiKeys['apiKeys.paystackKey']     = paystackKey;
+    if (whatsappToken)    apiKeys['apiKeys.whatsappToken']    = whatsappToken;
+    if (whatsappPhoneId)  apiKeys['apiKeys.whatsappPhoneId']  = whatsappPhoneId;
+    if (facebookToken)    apiKeys['apiKeys.facebookToken']    = facebookToken;
+    if (facebookPageId)   apiKeys['apiKeys.facebookPageId']   = facebookPageId;
+    if (instagramToken)   apiKeys['apiKeys.instagramToken']   = instagramToken;
+    if (paystackKey)      apiKeys['apiKeys.paystackKey']      = paystackKey;
+    if (smartsmsToken)    apiKeys['apiKeys.smartsmsToken']    = smartsmsToken;
+    if (smartsmsSenderId) apiKeys['apiKeys.smartsmsSenderId'] = smartsmsSenderId;
     await User.findByIdAndUpdate(req.user._id, { $set: apiKeys });
     res.status(200).json({ success: true, message: 'API keys updated' });
   } catch (err) {

@@ -54,6 +54,8 @@ const userSchema = new mongoose.Schema({
     facebookPageId:  String,
     instagramToken:  { type: String, select: false },
     paystackKey:     { type: String, select: false },
+    smartsmsToken:   { type: String, select: false },
+    smartsmsSenderId: String,
   },
   bankDetails: {
     bankName:       String,
