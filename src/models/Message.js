@@ -4,7 +4,7 @@ const messageLogSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   contact: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
   contactName: String, // snapshot
-  platform: { type: String, enum: ['whatsapp', 'instagram', 'facebook', 'sms'], required: true },
+  platform: { type: String, enum: ['whatsapp', 'instagram', 'facebook', 'sms', 'email'], required: true },
   content: { type: String, required: true },
   status: { type: String, enum: ['sent', 'pending', 'failed'], default: 'pending' },
   error: { type: String },
@@ -21,7 +21,7 @@ const scheduledMessageSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'MessageTemplate' },
   content: { type: String, required: true },
-  platform: { type: String, enum: ['whatsapp', 'instagram', 'facebook', 'sms'], required: true },
+  platform: { type: String, enum: ['whatsapp', 'instagram', 'facebook', 'sms', 'email'], required: true },
   contacts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Contact' }],
   scheduledAt: { type: Date, required: true },
   recurrence: { type: String, enum: ['none', 'daily', 'weekly', 'monthly'], default: 'none' },
