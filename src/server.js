@@ -66,6 +66,7 @@ app.use('/contacts', require('./routes/contacts'));
 app.use('/messages', require('./routes/messages'));
 app.use('/templates', require('./routes/templates'));
 app.use('/invoices', require('./routes/invoices'));
+app.use('/bookkeeping', require('./routes/bookkeeping'));
 app.use('/expenses', require('./routes/expenses'));
 app.use('/inventory', require('./routes/inventory'));
 app.use('/dashboard', require('./routes/dashboard'));
