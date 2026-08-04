@@ -119,3 +119,69 @@ exports.getMovements = async (req, res, next) => {
     res.json({ success: true, ...paginateResult(movements, total, Number(page), Number(limit)) });
   } catch (err) { next(err); }
 };
+
+// ─── GET /inventory/export ──────────────────────────────────────────────────────
+exports.exportProducts = async (req, res, next) => {
+  try {
+    const wsId = getWorkspaceId(req);
+    const products = await Product.find({ user: wsId, isActive: true }).sort({ name: 1 });
+
+    const rows = products.map(p => ({
+      'Product Name':   p.name,
+      'SKU':            p.sku,
+      'Category':       p.category || '',
+      'Quantity':       p.quantity,
+      'Reorder Level':  p.reorderLevel,
+      'Selling Price':  p.price,
+      'Cost Price':     p.costPrice || 0,
+      'Warehouse':      p.warehouse,
+      'Unit':           p.unit,
+      'Stock Status':   p.quantity <= p.reorderLevel ? 'Low Stock' : 'In Stock',
+      'Stock Value':    (p.quantity * (p.costPrice || 0)).toFixed(2),
+    }));
+
+    const XLSX = require('xlsx');
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Products');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename=products_report.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch (err) { next(err); }
+};
+
+// ─── GET /inventory/movements/export ─────────────────────────────────────────────
+exports.exportMovements = async (req, res, next) => {
+  try {
+    const wsId = getWorkspaceId(req);
+    const movements = await StockMovement.find({ user: wsId })
+      .populate('product', 'name sku')
+      .populate('createdBy', 'name')
+      .sort({ createdAt: -1 });
+
+    const rows = movements.map(m => ({
+      'Product':           m.product?.name || 'Unknown',
+      'SKU':                m.product?.sku  || '',
+      'Type':               m.type,
+      'Quantity':           m.quantity,
+      'Previous Quantity':  m.previousQuantity,
+      'New Quantity':       m.newQuantity,
+      'Reference':          m.reference || '',
+      'Notes':              m.notes || '',
+      'Recorded By':        m.createdBy?.name || '',
+      'Date':               new Date(m.createdAt).toLocaleString('en-NG'),
+    }));
+
+    const XLSX = require('xlsx');
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock Movements');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename=stock_movements_report.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch (err) { next(err); }
+};

@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema({
     businessName:    String,
     businessPhone:   String,
     businessAddress: String,
+    cacRegNumber:    String,
     website:         String,
     currency:   { type: String, default: 'NGN' },
     timezone:   { type: String, default: 'Africa/Lagos' },
@@ -56,6 +57,8 @@ const userSchema = new mongoose.Schema({
     paystackKey:     { type: String, select: false },
     smartsmsToken:   { type: String, select: false },
     smartsmsSenderId: String,
+    smartsmsSenderIdStatus: { type: String, enum: ['not_submitted', 'pending', 'approved', 'rejected'], default: 'not_submitted' },
+    smartsmsSubmittedAt:    Date,
   },
   bankDetails: {
     bankName:       String,

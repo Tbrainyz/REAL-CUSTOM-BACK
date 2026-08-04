@@ -225,3 +225,24 @@ exports.resendOTP = async (req, res, next) => {
     res.status(200).json({ success: true, message: 'New OTP sent' });
   } catch (err) { next(err); }
 };
+
+// ─── PROTECTED: Update avatar ─────────────────────────────────────────────────
+exports.updateAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image file uploaded' });
+    }
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { avatar: avatarUrl },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, data: user });
+  } catch (err) {
+    next(err);
+  }
+};

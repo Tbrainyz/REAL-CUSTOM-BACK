@@ -174,4 +174,47 @@ const sendMessage = async (platform, contact, content, userApiKeys, options = {}
   }
 };
 
-module.exports = { sendMessage, sendWhatsApp, sendSMS, personalizeMessage };
+
+// ─── Sender ID helpers ─────────────────────────────────────────────────────────
+// SmartSMS Sender IDs: max 11 chars, alphanumeric only, no spaces/symbols.
+const sanitizeSenderId = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/[^a-zA-Z0-9]/g, '')   // strip everything except letters/numbers
+    .slice(0, 11)                    // max 11 chars
+    .toUpperCase();
+};
+
+// Submit a Sender ID to SmartSMS for whitelisting/approval
+const submitSenderId = async ({ token, senderId, organisation, regno, address, sampleMessage }) => {
+  if (!token)        throw new Error('SmartSMS token is required');
+  if (!senderId)      throw new Error('Sender ID is required');
+  if (!organisation)  throw new Error('Organisation name is required');
+  if (!regno)          throw new Error('CAC registration number is required');
+  if (!address)        throw new Error('Business address is required');
+
+  const FormData = require('form-data');
+  const form = new FormData();
+  form.append('token',        token);
+  form.append('senderid',     senderId);
+  form.append('message',      sampleMessage || `Sample message from ${organisation}`);
+  form.append('organisation', organisation);
+  form.append('regno',        regno);
+  form.append('address',      address);
+
+  try {
+    const response = await axios.post(
+      'https://app.smartsmssolutions.com/io/api/client/v1/senderid/create/',
+      form,
+      { headers: form.getHeaders(), timeout: 20000 }
+    );
+    console.log('Sender ID submission response:', JSON.stringify(response.data));
+    return response.data;
+  } catch (err) {
+    const errMsg = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+    console.error('Sender ID submission failed:', errMsg);
+    throw new Error(`Sender ID submission failed: ${errMsg}`);
+  }
+};
+
+module.exports = { sendMessage, sendWhatsApp, sendSMS, personalizeMessage, sanitizeSenderId, submitSenderId };

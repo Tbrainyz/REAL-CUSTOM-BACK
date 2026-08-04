@@ -150,11 +150,51 @@ const executeScheduledMessage = async (scheduledMsgId, userId) => {
 // Initialize scheduled jobs on server start
 exports.initScheduledJobs = async () => {
   try {
-    const pending = await ScheduledMessage.find({ status: 'pending', scheduledAt: { $gt: new Date() } });
+    const now = new Date();
+
+    // 1) Catch up on MISSED messages — scheduledAt already passed while server was
+    //    asleep/restarted (common on free-tier hosts). Send these immediately.
+    const missed = await ScheduledMessage.find({ status: 'pending', scheduledAt: { $lte: now } });
+    for (const msg of missed) {
+      console.log(`⏰ Catching up missed scheduled message ${msg._id} (was due ${msg.scheduledAt})`);
+      await executeScheduledMessage(msg._id, msg.user);
+
+      if (msg.recurrence !== 'none') {
+        const next = getNextRunDate(msg.recurrence, msg.scheduledAt);
+        await ScheduledMessage.findByIdAndUpdate(msg._id, { scheduledAt: next, nextRunAt: next, status: 'pending' });
+        const updated = await ScheduledMessage.findById(msg._id);
+        scheduleJob(updated, msg.user);
+      }
+    }
+
+    // 2) Re-register jobs that are still genuinely in the future
+    const pending = await ScheduledMessage.find({ status: 'pending', scheduledAt: { $gt: now } });
     for (const msg of pending) {
       scheduleJob(msg, msg.user);
     }
-    console.log(`✅ Initialized ${pending.length} scheduled message job(s)`);
+
+    console.log(`✅ Scheduled jobs: ${missed.length} caught up, ${pending.length} re-registered`);
+
+    // 3) Safety net — every 5 minutes, re-check for anything stuck in "pending"
+    //    with a scheduledAt in the past (covers edge cases like a crashed timer).
+    const cron = require('node-cron');
+    cron.schedule('*/5 * * * *', async () => {
+      try {
+        const stuck = await ScheduledMessage.find({ status: 'pending', scheduledAt: { $lte: new Date() } });
+        for (const msg of stuck) {
+          console.log(`🔁 Safety-net: sending overdue scheduled message ${msg._id}`);
+          await executeScheduledMessage(msg._id, msg.user);
+          if (msg.recurrence !== 'none') {
+            const next = getNextRunDate(msg.recurrence, msg.scheduledAt);
+            await ScheduledMessage.findByIdAndUpdate(msg._id, { scheduledAt: next, nextRunAt: next, status: 'pending' });
+            const updated = await ScheduledMessage.findById(msg._id);
+            scheduleJob(updated, msg.user);
+          }
+        }
+      } catch (err) {
+        console.error('Safety-net cron error:', err.message);
+      }
+    });
   } catch (err) {
     console.error('Failed to init scheduled jobs:', err);
   }
