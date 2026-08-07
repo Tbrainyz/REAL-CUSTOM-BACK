@@ -4,11 +4,11 @@ const router  = express.Router();
 const {
   getExpenses, createExpense, updateExpense, deleteExpense, exportExpenses,
 } = require('../controllers/financeController');
-const { protect, requireRole } = require('../middleware/auth');
+const { protect, requireRole, adminOnly } = require('../middleware/auth');
 
 router.use(protect, attachWorkspace, requireRole('finance_manager'));
 
-router.get('/export', exportExpenses);
+router.get('/export', adminOnly, exportExpenses);
 router.route('/').get(getExpenses).post(createExpense);
 router.route('/:id').put(updateExpense).delete(deleteExpense);
 

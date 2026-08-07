@@ -8,7 +8,7 @@ const {
   getContacts, getContact, createContact, updateContact, deleteContact,
   importContacts, exportContacts,
 } = require('../controllers/contactController');
-const { protect, requireRole } = require('../middleware/auth');
+const { protect, requireRole, adminOnly } = require('../middleware/auth');
 
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
@@ -27,7 +27,8 @@ const upload = multer({
 
 router.use(protect, attachWorkspace, requireRole('messaging_manager'));
 
-router.get('/export',              exportContacts);
+// Export is admin-only — sub-users can manage contacts but not export them
+router.get('/export', adminOnly, exportContacts);
 router.post('/import', upload.single('file'), importContacts);
 router.route('/').get(getContacts).post(createContact);
 router.route('/:id').get(getContact).put(updateContact).delete(deleteContact);
