@@ -3,11 +3,12 @@ const express = require('express');
 const router  = express.Router();
 const { checkTrial } = require('../middleware/checkTrial');
 const { getLedger, exportLedger } = require('../controllers/bookkeepingController');
-const { protect, requireRole } = require('../middleware/auth');
+const { protect, adminOnly } = require('../middleware/auth');
 
-router.use(protect, checkTrial, attachWorkspace, requireRole('finance_manager'));
+// Admin only — this page aggregates data across Finance AND Inventory,
+// which are otherwise siloed to their respective role dashboards.
+router.use(protect, checkTrial, attachWorkspace, adminOnly);
 
-// Export must come before any /:id style routes if added later
 router.get('/export', exportLedger);
 router.get('/',       getLedger);
 
