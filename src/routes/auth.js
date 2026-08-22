@@ -6,6 +6,7 @@ const fs      = require('fs');
 const {
   register, login, getMe, updateProfile, changePassword,
   forgotPassword, verifyOTP, resetPassword, resendOTP, updateApiKeys, updateAvatar,
+  verifyEmail, resendEmailVerification,
 } = require('../controllers/authController');
 const { protect, adminOnly } = require('../middleware/auth');
 
@@ -29,6 +30,8 @@ const avatarUpload = multer({
 
 // ── Public ────────────────────────────────────────────────────────────────────
 router.post('/register',         register);
+router.post('/verify-email',     verifyEmail);
+router.post('/resend-verification', resendEmailVerification);
 router.post('/login',            login);
 router.post('/forgot-password',  forgotPassword);
 router.post('/verify-otp',       verifyOTP);

@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema({
   resetPasswordOTP:     { type: String,  select: false },
   resetPasswordExpires: { type: Date,    select: false },
 
+  // Email verification (registration)
+  isVerified:          { type: Boolean, default: false },
+  emailVerifyOTP:      { type: String,  select: false },
+  emailVerifyExpires:  { type: Date,    select: false },
+
   // Admin-level settings (sub-users inherit from admin but can't change these)
   settings: {
     businessName:    String,

@@ -18,6 +18,8 @@ const sendToken = (user, statusCode, res) => {
 // @route POST /auth/register
 // Anyone can register here, but they always get role=admin (they are a new
 // workspace owner). Sub-users are created by admins via POST /users.
+// The account is created but NOT logged in yet — an OTP is emailed and must
+// be verified via /auth/verify-email before the user can log in.
 exports.register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
@@ -31,8 +33,89 @@ exports.register = async (req, res, next) => {
     }
 
     // Self-registered users are always admin (workspace owners)
-    const user = await User.create({ name, email, password, role: ROLES.ADMIN });
-    sendToken(user, 201, res);
+    const user = await User.create({ name, email, password, role: ROLES.ADMIN, isVerified: false });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailVerifyOTP     = otp;
+    user.emailVerifyExpires = Date.now() + 15 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#4F46E5">Welcome to My Real Customer App! 👋</h2>
+        <p>Hi ${name}, verify your email to activate your account.</p>
+        <h1 style="color:#4F46E5;font-size:40px;letter-spacing:8px;margin:20px 0">${otp}</h1>
+        <p>Enter this code to verify your email. Expires in <strong>15 minutes</strong>.</p>
+      </div>`;
+
+    sendEmail(email, 'Verify your email — My Real Customer App', html)
+      .catch(err => console.warn('Verification email failed:', err.message));
+
+    res.status(201).json({
+      success: true,
+      message: `Account created. A verification code was sent to ${email}.`,
+      data: { email: user.email, requiresVerification: true },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── PUBLIC: Verify email OTP (registration) ───────────────────────────────────
+exports.verifyEmail = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const user = await User.findOne({
+      email,
+      emailVerifyOTP: otp,
+      emailVerifyExpires: { $gt: Date.now() },
+    }).select('+emailVerifyOTP +emailVerifyExpires');
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code' });
+    }
+
+    user.isVerified         = true;
+    user.emailVerifyOTP     = undefined;
+    user.emailVerifyExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    // Now log them in automatically since verification is complete
+    sendToken(user, 200, res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── PUBLIC: Resend registration verification OTP ──────────────────────────────
+exports.resendEmailVerification = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email is required' });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: 'No account found with this email' });
+    if (user.isVerified) return res.status(400).json({ success: false, message: 'Email already verified. Please log in.' });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailVerifyOTP     = otp;
+    user.emailVerifyExpires = Date.now() + 15 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+        <h2 style="color:#4F46E5">New Verification Code</h2>
+        <p>Hi ${user.name}, here is your new verification code:</p>
+        <h1 style="color:#4F46E5;font-size:40px;letter-spacing:8px;margin:20px 0">${otp}</h1>
+        <p>Expires in <strong>15 minutes</strong>.</p>
+      </div>`;
+    await sendEmail(user.email, 'New Verification Code — My Real Customer App', html);
+
+    res.status(200).json({ success: true, message: 'New verification code sent' });
   } catch (err) {
     next(err);
   }
@@ -52,6 +135,16 @@ exports.login = async (req, res, next) => {
     }
     if (!user.isActive) {
       return res.status(403).json({ success: false, message: 'Account is deactivated. Contact your administrator.' });
+    }
+    // Only admins (self-registered) require email verification —
+    // sub-users created by an admin are trusted and skip this check.
+    if (user.role === ROLES.ADMIN && !user.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email before logging in.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+      });
     }
 
     user.lastLogin = new Date();
